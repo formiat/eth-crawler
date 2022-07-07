@@ -1,11 +1,37 @@
-use crate::html::templates::{DATA_CELL_HTML, HEADER_CELL_HTML, RESULTS_HTML, ROW_HTML};
+use crate::html::templates::{
+    BALANCE_HTML, DATA_CELL_HTML, HEADER_CELL_HTML, RESULTS_HTML, ROW_HTML,
+};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use web3::types::{Transaction, TransactionReceipt};
+use web3::types::{Transaction, TransactionReceipt, U256};
 
 pub fn render_html(
+    account: String,
     transactions: Vec<(u64, Transaction, Option<TransactionReceipt>)>,
+    balance: Option<(DateTime<Utc>, U256)>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    Ok(RESULTS_HTML.replace("{rows}", &render_rows(transactions)?))
+    let htmp_string = RESULTS_HTML;
+    let htmp_string = htmp_string.replace("{account}", &account);
+    let htmp_string = htmp_string.replace("{balance}", &render_balance(balance)?);
+    let htmp_string = htmp_string.replace("{rows}", &render_rows(transactions)?);
+
+    Ok(htmp_string)
+}
+
+pub fn render_balance(
+    balance: Option<(DateTime<Utc>, U256)>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let html_string = if let Some((timestamp, balance)) = balance {
+        let html_string = BALANCE_HTML;
+        let html_string = html_string.replace("{timestamp}", &timestamp.to_string());
+        let html_string =
+            html_string.replace("{balance}", &format!("{}", balance.as_u128() as f64 / 1e18));
+
+        html_string
+    } else {
+        "".to_string()
+    };
+
+    Ok(html_string)
 }
 
 fn render_rows(
@@ -74,9 +100,7 @@ fn render_row(
 
     let cell = DATA_CELL_HTML.replace(
         "{data}",
-        &format!("{:?}", date_time_from_timestamp_sec(transaction.0))
-            .replace('T', " ")
-            .replace('Z', ""),
+        &date_time_from_timestamp_sec(transaction.0).to_string(),
     );
     row.push_str(&cell);
 
@@ -100,7 +124,7 @@ fn render_row(
 
     let cell = DATA_CELL_HTML.replace(
         "{data}",
-        &format!("{:?} ETH", transaction.1.value.as_u64() as f64 / 1e18),
+        &format!("{} ETH", transaction.1.value.as_u128() as f64 / 1e18),
     );
     row.push_str(&cell);
 

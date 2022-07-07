@@ -1,4 +1,3 @@
-use crate::constants::JSONRPC_URLS;
 use sled::IVec;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -21,9 +20,7 @@ pub struct CachedTransactions {
 }
 
 impl CachedTransactions {
-    /// Param `jsonrpc_url` - `None` means default
-    pub async fn new(jsonrpc_url: Option<String>) -> Result<Self, Box<dyn std::error::Error>> {
-        let web3 = Self::try_connect(jsonrpc_url)?;
+    pub async fn new(web3: Web3<Http>) -> Result<Self, Box<dyn std::error::Error>> {
         let db = sled::open("db")?;
 
         let cache_keys = Self::read_cache_keys(&db).await?;
@@ -189,8 +186,6 @@ impl CachedTransactions {
 
             if let Some(block) = block {
                 let block_timestamp = block.timestamp.as_u64();
-                // let block_timestamp = Self::date_time_from_timestamp_sec(block_timestamp);
-
                 let tr_hashes = block.transactions;
 
                 for tr_hash in tr_hashes {
@@ -221,26 +216,6 @@ impl CachedTransactions {
         info!("Got transactions len: {}", transactions.len());
 
         Ok(transactions)
-    }
-
-    /// Param `jsonrpc_url` - `None` means default
-    fn try_connect(jsonrpc_url: Option<String>) -> Result<Web3<Http>, Box<dyn std::error::Error>> {
-        let urls = jsonrpc_url
-            .as_ref()
-            .map(|v| vec![v.as_str()])
-            .unwrap_or(JSONRPC_URLS.to_vec());
-
-        let mut errors = Vec::new();
-        let transport = urls
-            .into_iter()
-            .map(Http::new)
-            .find_map(|r| r.map_err(|e| errors.push(e)).ok());
-
-        let web3 = transport
-            .map(Web3::new)
-            .ok_or_else(|| errors.swap_remove(0))?;
-
-        Ok(web3)
     }
 
     fn stringify_key(account: Address, block_number: U64, tr_hash: H256) -> String {

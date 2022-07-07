@@ -1,5 +1,5 @@
+use chrono::{DateTime, NaiveDate, ParseError, Utc};
 use clap::{Arg, ArgMatches, Command, ValueHint};
-use std::num::ParseIntError;
 use std::str::FromStr;
 
 #[derive(Clone, Debug)]
@@ -8,10 +8,11 @@ pub struct Config {
     pub account: String,
     pub block_start: u64,
     pub block_end: Option<u64>,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 impl Config {
-    pub fn new() -> Result<Self, ParseIntError> {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let matches = Self::make_matches();
 
         Ok(Self {
@@ -21,6 +22,10 @@ impl Config {
             block_end: matches
                 .value_of("block_end")
                 .map(u64::from_str)
+                .transpose()?,
+            timestamp: matches
+                .value_of("timestamp")
+                .map(Self::date_time_from_string)
                 .transpose()?,
         })
     }
@@ -56,6 +61,20 @@ impl Config {
                     .value_name("BLOCK_END")
                     .help("Ethereum block number end (unsigned integer)"),
             )
+            .arg(
+                Arg::new("timestamp")
+                    .long("timestamp")
+                    .value_name("YYYY-MM-DD")
+                    .help("Timestamp in YYYY-MM-DD format to fetch account balance"),
+            )
             .get_matches()
+    }
+
+    fn date_time_from_string(timestamp: &str) -> Result<DateTime<Utc>, ParseError> {
+        let timestamp = NaiveDate::parse_from_str(timestamp, "%Y-%m-%d")?;
+        let timestamp = timestamp.and_hms(0, 0, 0);
+        let timestamp = DateTime::<Utc>::from_utc(timestamp, Utc);
+
+        Ok(timestamp)
     }
 }

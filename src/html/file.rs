@@ -1,14 +1,17 @@
 use crate::html::render::render_html;
+use chrono::{DateTime, Utc};
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::{thread, time::Duration};
-use web3::types::{Transaction, TransactionReceipt};
+use web3::types::{Transaction, TransactionReceipt, U256};
 
 pub fn open_results_in_browser(
+    account: String,
     transactions: Vec<(u64, Transaction, Option<TransactionReceipt>)>,
+    balance: Option<(DateTime<Utc>, U256)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (html_file_dir, html_file_path) = save_results_to_file(transactions)?;
+    let (html_file_dir, html_file_path) = save_results_to_file(account, transactions, balance)?;
     let html_file_url = format!("file://{}", html_file_path);
 
     debug!("Html file path: {}", html_file_path);
@@ -27,7 +30,9 @@ pub fn open_results_in_browser(
 }
 
 fn save_results_to_file(
+    account: String,
     transactions: Vec<(u64, Transaction, Option<TransactionReceipt>)>,
+    balance: Option<(DateTime<Utc>, U256)>,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
     let current_path = fs::canonicalize(&PathBuf::from("./"))?
         .as_path()
@@ -43,7 +48,7 @@ fn save_results_to_file(
     fs::create_dir_all(&html_file_dir_path)?;
     let mut html_file = File::create(&html_file_path)?;
 
-    let html_string = render_html(transactions)?;
+    let html_string = render_html(account, transactions, balance)?;
     html_file.write_all(html_string.as_bytes())?;
 
     let res = (html_file_dir_path, html_file_path);
